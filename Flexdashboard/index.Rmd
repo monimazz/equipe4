@@ -1,0 +1,490 @@
+---
+title: "Recife em 15 Minutos"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(leaflet)
+library(tidyverse)
+library(readxl)
+library(sf)
+library(rgdal)
+library(stringi)
+comparativo <- read_excel("matriz.xlsx", sheet = 'comparativo')
+ape <- read_excel("matriz.xlsx", sheet = 'a pe')
+bike <- read_excel("matriz.xlsx", sheet = 'bike')
+bairros <- rgdal::readOGR("bairros.geojson")
+bairros <- st_as_sf(bairros)
+pop <- read_excel('pop_bairro_recife.xlsx')
+pop <- pop %>%
+  mutate(bairro = str_to_upper(bairro),
+         bairro = stri_trans_general(bairro, "Latin-ASCII"))
+
+pop_bairro <- left_join(bairros, pop, by= c("bairro_nome_ca"= "bairro"))
+
+pop_bairro_comparativo <- left_join(pop_bairro, comparativo)
+pop_bairro_bike <- left_join(pop_bairro, bike)
+pop_bairro_pe <- left_join(pop_bairro, ape)
+```
+
+15 minutos a pé
+==================================================
+
+
+### Média de acesso aos eixos em 15 minutos a pé
+
+```{r}
+pal <- colorBin("Oranges", domain = pop_bairro_comparativo$`A PÉ média de acesso a pé a todos os eixos`)
+
+paleducpe <- colorBin("Oranges", domain = pop_bairro_pe$`EDUCACA % acesso`)
+
+pallazer <- colorBin("Oranges", domain = pop_bairro_pe$`LAZER % acesso`)
+
+palpar <- colorBin("Oranges", domain = pop_bairro_pe$`PARQUES e PRAÇAS % acesso`)
+
+palsaude <- colorBin("Oranges", domain = pop_bairro_pe$`SAUDE % acesso`)
+
+palsupri <- colorBin("Oranges", domain = pop_bairro_pe$`SUPRIMENTOS %`)
+
+palciclo <- colorBin("Oranges", domain = pop_bairro_pe$`CICLOVIA % acesso`)
+
+
+
+#adicionar dados
+labelsciclo <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`CICLOVIA % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelslazer <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`LAZER % acesso`
+) %>% lapply(htmltools::HTML)
+
+labelspraca <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`PARQUES e PRAÇAS % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelssaude <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`SAUDE % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelssuprimentos <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`SUPRIMENTOS %`
+) %>% lapply(htmltools::HTML)
+
+labelseedu <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_pe$total, pop_bairro_pe$`EDUCACA % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labels <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_comparativo$total, pop_bairro_comparativo$`A PÉ média de acesso a pé a todos os eixos`
+) %>% lapply(htmltools::HTML)
+
+#mapa
+
+mapaape <- leaflet() %>%
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$CartoDB.Positron, group = "Simples") %>%
+  addPolygons(data = pop_bairro_comparativo,
+    fillColor = ~pal(`A PÉ média de acesso a pé a todos os eixos`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    group = "Média dos eixos") %>% 
+  addPolygons(data = pop_bairro_pe,
+    fillColor = ~paleducpe(pop_bairro_pe$`EDUCACA % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelseedu,
+    group = "Educação") %>% 
+  addPolygons(data = pop_bairro_pe,
+    fillColor = ~pallazer(pop_bairro_pe$`LAZER % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelslazer,
+    group = "Lazer") %>% 
+   addPolygons(data = pop_bairro_pe,
+    fillColor = ~palpar(pop_bairro_pe$`PARQUES e PRAÇAS % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelspraca,
+    group = "Parques e praças") %>% 
+   addPolygons(data = pop_bairro_pe,
+    fillColor = ~palsaude(pop_bairro_pe$`SAUDE % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelssaude,
+    group = "Saúde") %>% 
+   addPolygons(data = pop_bairro_pe,
+    fillColor = ~palsupri(pop_bairro_pe$`SUPRIMENTOS %`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666" ,
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelssuprimentos,
+    group = "Suprimentos") %>% 
+    addPolygons(data = pop_bairro_pe,
+    fillColor = ~palciclo(pop_bairro_pe$`CICLOVIA % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelsciclo,
+    group = "Ciclovia")
+  
+
+mapaape %>% 
+  addLayersControl( baseGroups = c("OSM (default)", "Simples"),
+    overlayGroups = c("Média dos eixos", "Educação", "Lazer", "Parques e praças",
+                      "Saúde", "Suprimentos", "Ciclovia")) %>% 
+  hideGroup("Educação") %>% 
+  hideGroup("Suprimentos") %>%
+  hideGroup("Saúde") %>%
+  hideGroup("Ciclovia") %>%
+  hideGroup("Parques e praças") %>%
+  hideGroup("Lazer")
+  
+```
+
+15 minutos de bicicleta
+==================================================
+
+### Média de acesso aos eixos em 15 minutos de bicicleta
+
+```{r}
+palco <- colorBin("Blues", domain = pop_bairro_comparativo$`Media do acesso de bike a todos os eixos`)
+
+paleducbik <- colorBin("Blues", domain = pop_bairro_bike$`EDUCACAO - % acesso`)
+
+pallazerbik <- colorBin("Blues", domain = pop_bairro_bike$`LAZER % acesso lazer`)
+
+palparbik <- colorBin("Blues", domain = pop_bairro_bike$`PARQUE % acesso`)
+
+palsaudebik <- colorBin("Blues", domain = pop_bairro_bike$`SAUDE % acesso`)
+
+palsupribik <- colorBin("Blues", domain = pop_bairro_bike$`SUPRIMENTOS % acesso`)
+
+
+
+
+#adicionar dados
+labelslazerbik <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_bike$total, pop_bairro_bike$`LAZER % acesso lazer`
+) %>% lapply(htmltools::HTML)
+
+labelspracabik <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_bike$total, pop_bairro_bike$`PARQUE % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelssaudebik <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_bike$total, pop_bairro_bike$`SAUDE % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelssuprimentosbik <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_bike$total, pop_bairro_bike$`SUPRIMENTOS % acesso`
+) %>% lapply(htmltools::HTML)
+
+labelseedubik <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_bike$total, pop_bairro_bike$`EDUCACAO - % acesso`
+) %>% lapply(htmltools::HTML)
+
+
+labelsco <- sprintf(
+  "<strong>%s habitantes</strong><br/>%g porcento de acesso</sup>",
+  pop_bairro_comparativo$total, pop_bairro_comparativo$`Media do acesso de bike a todos os eixos`
+) %>% lapply(htmltools::HTML)
+
+#mapa
+
+mapabik <- leaflet() %>%
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$CartoDB.Positron, group = "Simples") %>%
+  addPolygons(data = pop_bairro_comparativo,
+    fillColor = ~palco(`Media do acesso de bike a todos os eixos`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelsco,
+    group = "Média dos eixos") %>% 
+  addPolygons(data = pop_bairro_bike,
+    fillColor = ~paleducbik(pop_bairro_bike$`EDUCACAO - % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelseedubik,
+    group = "Educação") %>% 
+  addPolygons(data = pop_bairro_bike,
+    fillColor = ~pallazerbik(pop_bairro_bike$`LAZER % acesso lazer`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelslazerbik,
+    group = "Lazer") %>% 
+   addPolygons(data = pop_bairro_bike,
+    fillColor = ~palparbik(pop_bairro_bike$`PARQUE % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelspracabik,
+    group = "Parques e praças") %>% 
+   addPolygons(data = pop_bairro_bike,
+    fillColor = ~palsaudebik(pop_bairro_bike$`SAUDE % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelssaudebik,
+    group = "Saúde") %>% 
+   addPolygons(data = pop_bairro_bike,
+    fillColor = ~palsupribik(pop_bairro_bike$`SUPRIMENTOS % acesso`),
+    weight = 2,
+    opacity = 0.7,
+    color = "white",
+    dashArray = "3",
+    fillOpacity = 0.5,
+    highlight = highlightOptions(
+      color = "#666" ,
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labelssuprimentosbik,
+    group = "Suprimentos")
+  
+
+mapabik %>% 
+  addLayersControl( baseGroups = c("OSM (default)", "Simples"),
+    overlayGroups = c("Média dos eixos", "Educação", "Lazer", "Parques e praças",
+                      "Saúde", "Suprimentos")) %>% 
+  hideGroup("Educação") %>% 
+  hideGroup("Suprimentos") %>%
+  hideGroup("Saúde") %>% 
+  hideGroup("Parques e praças") %>%
+  hideGroup("Lazer")
+```
+
+
+Tabelas com a % de acesso aos serviços
+==================================================
+
+Column {.tabset}
+-------------------------------------
+
+### Serviços a 15 minutos a pé por bairro
+```{r}
+library(DT)
+tabela <- ape %>% 
+  select(bairro_nome, rpa,
+         `média de acesso a pé a todos os eixos`, `EDUCACA % acesso`, `PARQUES e PRAÇAS % acesso`,
+         `LAZER % acesso`, `SAUDE % acesso`, `SUPRIMENTOS %`)
+  
+datatable(tabela) %>% formatStyle(names(tabela),
+                              background = styleColorBar(range(tabela$`média de acesso a pé a todos os eixos`), 'lightblue'),
+                              backgroundSize = '98% 88%',
+                              backgroundRepeat = 'no-repeat',
+                              backgroundPosition = 'center')
+
+```
+
+
+
+### Serviços a 15 minutos bicicleta por bairro
+```{r}
+tabela2 <- bike %>% 
+  select(bairro_nome, rpa,
+         `Media do acesso de bike a todos os eixos`, `EDUCACAO - % acesso`, `PARQUE % acesso`, `LAZER % acesso lazer`, `SAUDE % acesso`, `SUPRIMENTOS % acesso`)
+  
+datatable(tabela2) %>% formatStyle(names(tabela2),
+                              background = styleColorBar(range(tabela2$`Media do acesso de bike a todos os eixos`), 'lightblue'),
+                              backgroundSize = '98% 88%',
+                              backgroundRepeat = 'no-repeat',
+                              backgroundPosition = 'center')
+
+```
+
+
+
+Serviços de Recife mapeados
+==================================================
+```{r, include=FALSE}
+educacao <- rgdal::readOGR("escolas_municipais_estaduais.geojson")
+suprimentos <- rgdal::readOGR("suprimentos.geojson")
+parques <- rgdal::readOGR("parques_praca.geojson")
+lazer <- rgdal::readOGR("compaz.geojson")
+saude <- rgdal::readOGR("saude.geojson")
+malha <- rgdal::readOGR("malhacicloviaria_25nov2020.geojson")
+bikebuf <- rgdal::readOGR("buffer_1000.geojson")
+apebuf <- rgdal::readOGR("buffer_500.geojson")
+
+
+#mudar formato ------
+library(sf)
+apebuf <- st_as_sf(apebuf)
+bikebuf <-st_as_sf(bikebuf)
+lazer <-st_as_sf(lazer)
+educacao <-st_as_sf(educacao)
+suprimentos <-st_as_sf(suprimentos)
+parques <-st_as_sf(parques)
+saude <-st_as_sf(saude)
+malha <-st_as_sf(malha)
+library(leaflet.extras)
+
+```
+
+
+
+### Serviços mapeados
+```{r, warning=FALSE, message=FALSE}
+palbairro2 <- colorBin("Oranges", domain = pop_bairro$total)
+
+
+mapatudao <- leaflet() %>% 
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$CartoDB.Positron, group = "Simples") %>%
+  addPolygons(data=bairros,
+              weight = 2,
+              opacity = 1,
+              color = "grey",
+              dashArray = "3", 
+              group = 'Limites geográficos') %>% 
+  addHeatmap(data = saude, radius = 8, group = "Saúde") %>% 
+  addHeatmap(data = suprimentos,radius = 8, group = "Suprimentos") %>%
+  addHeatmap(data = educacao,radius = 8, group = "Escolas") %>% 
+  addPolylines(data = malha, color = "red", group = "Malha cicloviária") %>% 
+  addHeatmap(data = parques,radius = 8, group = "Praças e parques") %>% 
+  addHeatmap(data = lazer,radius = 8, group = "Lazer") %>% 
+  addPolygons( data = pop_bairro,
+               fillColor = ~palbairro2(total),
+               weight = 2,
+               opacity = 0.7,
+               color = "white",
+               dashArray = "3",
+               fillOpacity = 0.7,
+               group = "Habitantes",
+               highlight = highlightOptions(
+                 weight = 5,
+                 color = "#666",
+                 dashArray = "",
+                 fillOpacity = 0.7,
+                 bringToFront = TRUE)) 
+
+
+mapatudao %>% 
+  addLayersControl( baseGroups = c("OSM (default)", "Toner"),
+                    overlayGroups = c("Habitantes", "Saúde", "Suprimentos", "Escolas","Praças e parques", "Lazer", "Malha cicloviária")) %>% 
+  hideGroup("Saúde") %>% 
+  hideGroup("Suprimentos") %>% 
+  hideGroup("Escolas") %>% 
+  hideGroup("Lazer") %>% 
+  hideGroup("Praças e parques") %>% 
+  hideGroup("Malha cicloviária")
+
+
+```
+
